@@ -155,7 +155,7 @@ class TIFFParser {
 	getFieldTagName(fieldTag: number) {
 		// See: http://www.digitizationguidelines.gov/guidelines/TIFF_Metadata_Final.pdf
 		// See: http://www.digitalpreservation.gov/formats/content/tiff_tags.shtml
-		var fieldTagNames = {
+		const fieldTagNames = {
 			// TIFF Baseline
 			0x013B: 'Artist',
 			0x0102: 'BitsPerSample',
@@ -265,20 +265,16 @@ class TIFFParser {
 			0x8649: 'Photoshop',
 		} as { [key: number]: TIFFFieldNames };
 
-		var fieldTagName;
-
 		if (fieldTag in fieldTagNames) {
-			fieldTagName = fieldTagNames[fieldTag];
+			return fieldTagNames[fieldTag];
 		} else {
 			console.log("Unknown Field Tag:", fieldTag);
-			fieldTagName = "Tag" + fieldTag;
+			return "Tag" + fieldTag;
 		}
-
-		return fieldTagName;
 	}
 
 	getFieldTypeName(fieldType: number) {
-		var fieldTypeNames = {
+		const fieldTypeNames = {
 			0x0001: 'BYTE',
 			0x0002: 'ASCII',
 			0x0003: 'SHORT',
@@ -293,37 +289,29 @@ class TIFFParser {
 			0x000C: 'DOUBLE',
 		} as { [key: number]: string };
 
-		var fieldTypeName: string;
-
 		if (fieldType in fieldTypeNames) {
-			fieldTypeName = fieldTypeNames[fieldType];
+			return fieldTypeNames[fieldType];
 		}
-
-		return fieldTypeName;
 	}
 
 	getFieldTypeLength(fieldTypeName: string) {
-		var fieldTypeLength;
-
 		if (['BYTE', 'ASCII', 'SBYTE', 'UNDEFINED'].indexOf(fieldTypeName) !== -1) {
-			fieldTypeLength = 1;
+			return 1;
 		} else if (['SHORT', 'SSHORT'].indexOf(fieldTypeName) !== -1) {
-			fieldTypeLength = 2;
+			return 2;
 		} else if (['LONG', 'SLONG', 'FLOAT'].indexOf(fieldTypeName) !== -1) {
-			fieldTypeLength = 4;
+			return 4;
 		} else if (['RATIONAL', 'SRATIONAL', 'DOUBLE'].indexOf(fieldTypeName) !== -1) {
-			fieldTypeLength = 8;
+			return 8;
 		}
-
-		return fieldTypeLength;
 	}
 
 	getBits(numBits: number, byteOffset: number, bitOffset: number) {
 		bitOffset = bitOffset || 0;
-		var extraBytes = Math.floor(bitOffset / 8);
-		var newByteOffset = byteOffset + extraBytes;
-		var totalBits = bitOffset + numBits;
-		var shiftRight = 32 - numBits;
+		const extraBytes = Math.floor(bitOffset / 8);
+		const newByteOffset = byteOffset + extraBytes;
+		const totalBits = bitOffset + numBits;
+		const shiftRight = 32 - numBits;
 
 		if (totalBits <= 0) {
 			console.log(numBits, byteOffset, bitOffset);
@@ -370,10 +358,10 @@ class TIFFParser {
 	}
 
 	getFieldValues(fieldTagName: string, fieldTypeName: string, typeCount: number, valueOffset: number) {
-		var fieldValues: (string | number)[] = [];
+		const fieldValues: (string | number)[] = [];
 
-		var fieldTypeLength = this.getFieldTypeLength(fieldTypeName);
-		var fieldValueSize = fieldTypeLength * typeCount;
+		const fieldTypeLength = this.getFieldTypeLength(fieldTypeName);
+		const fieldValueSize = fieldTypeLength * typeCount;
 
 		if (fieldValueSize <= 4) {
 			// The value is stored at the big end of the valueOffset.
@@ -383,8 +371,8 @@ class TIFFParser {
 
 			fieldValues.push(value);
 		} else {
-			for (var i = 0; i < typeCount; i++) {
-				var indexOffset = fieldTypeLength * i;
+			for (let i = 0; i < typeCount; i++) {
+				const indexOffset = fieldTypeLength * i;
 
 				if (fieldTypeLength >= 8) {
 					if (['RATIONAL', 'SRATIONAL'].indexOf(fieldTypeName) !== -1) {
@@ -412,7 +400,7 @@ class TIFFParser {
 	}
 
 	clampColorSample(colorSample: number, bitsPerSample: number) {
-		var multiplier = Math.pow(2, 8 - bitsPerSample);
+		const multiplier = Math.pow(2, 8 - bitsPerSample);
 
 		return Math.floor((colorSample * multiplier) + (multiplier - 1));
 	}
@@ -425,27 +413,27 @@ class TIFFParser {
 	}
 
 	parseFileDirectory(byteOffset: number): TIFFFieldDictionary[] {
-		var numDirEntries = this.getBytes(2, byteOffset);
+		const numDirEntries = this.getBytes(2, byteOffset);
 
-		var tiffFields = {} as TIFFFieldDictionary;
+		const tiffFields = {} as TIFFFieldDictionary;
 
 		for (var i = byteOffset + 2, entryCount = 0; entryCount < numDirEntries; i += 12, entryCount++) {
-			var fieldTag = this.getBytes(2, i);
-			var fieldType = this.getBytes(2, i + 2);
-			var typeCount = this.getBytes(4, i + 4);
-			var valueOffset = this.getBytes(4, i + 8);
+			const fieldTag = this.getBytes(2, i);
+			const fieldType = this.getBytes(2, i + 2);
+			const typeCount = this.getBytes(4, i + 4);
+			const valueOffset = this.getBytes(4, i + 8);
 
-			var fieldTagName = this.getFieldTagName(fieldTag) as TIFFFieldNames;
-			var fieldTypeName = this.getFieldTypeName(fieldType);
+			const fieldTagName = this.getFieldTagName(fieldTag) as TIFFFieldNames;
+			const fieldTypeName = this.getFieldTypeName(fieldType);
 
-			var fieldValues = this.getFieldValues(fieldTagName, fieldTypeName, typeCount, valueOffset);
+			const fieldValues = this.getFieldValues(fieldTagName, fieldTypeName, typeCount, valueOffset);
 
 			tiffFields[fieldTagName] = { type: fieldTypeName, values: fieldValues };
 		}
 
 		this.fileDirectories.push(tiffFields);
 
-		var nextIFDByteOffset = this.getBytes(4, i);
+		const nextIFDByteOffset = this.getBytes(4, i);
 
 		if (nextIFDByteOffset === 0x00000000) {
 			return this.fileDirectories;
@@ -466,34 +454,34 @@ class TIFFParser {
 			return;
 		}
 
-		var firstIFDByteOffset = this.getBytes(4, 4);
+		const firstIFDByteOffset = this.getBytes(4, 4);
 
 		this.fileDirectories = this.parseFileDirectory(firstIFDByteOffset);
 
-		var fileDirectory = this.fileDirectories[0];
+		const fileDirectory = this.fileDirectories[0];
 
 		console.log(fileDirectory);
 
-		var imageWidth = fileDirectory.ImageWidth.values[0] as number;
-		var imageLength = fileDirectory.ImageLength.values[0] as number;
+		const imageWidth = fileDirectory.ImageWidth.values[0] as number;
+		const imageLength = fileDirectory.ImageLength.values[0] as number;
 
 		this.canvas.width = imageWidth;
 		this.canvas.height = imageLength;
 
-		var strips: number[][][] = [];
+		const strips: number[][][] = [];
 
-		var compression = (fileDirectory.Compression) ? fileDirectory.Compression.values[0] : 1;
+		const compression = (fileDirectory.Compression) ? fileDirectory.Compression.values[0] : 1;
 
-		var samplesPerPixel = fileDirectory.SamplesPerPixel.values[0];
+		const samplesPerPixel = fileDirectory.SamplesPerPixel.values[0];
 
-		var sampleProperties = [] as {
+		const sampleProperties = [] as {
 			bitsPerSample: number;
 			hasBytesPerSample: boolean;
 			bytesPerSample: number;
 		}[];
 
-		var bitsPerPixel = 0;
-		var hasBytesPerPixel = false;
+		let bitsPerPixel = 0;
+		let hasBytesPerPixel = false;
 
 		fileDirectory.BitsPerSample.values.forEach(function (bitsPerSample: number, i, bitsPerSampleValues) {
 			sampleProperties[i] = {
@@ -533,11 +521,11 @@ class TIFFParser {
 		}
 
 		// Loop through strips and decompress as necessary.
-		for (var i = 0; i < numStripOffsetValues; i++) {
-			var stripOffset = stripOffsetValues[i] as number;
+		for (let i = 0; i < numStripOffsetValues; i++) {
+			const stripOffset = stripOffsetValues[i] as number;
 			strips[i] = [];
 
-			var stripByteCount = stripByteCountValues[i];
+			const stripByteCount = stripByteCountValues[i];
 
 			// Loop through pixels.
 			for (var byteOffset = 0, bitOffset = 0, jIncrement = 1, getHeader = true, pixel = [], numBytes = 0, sample = 0, currentSample = 0; byteOffset < stripByteCount; byteOffset += jIncrement) {
@@ -625,7 +613,7 @@ class TIFFParser {
 								getHeader = true;
 							}
 						} else {
-							var currentByte = this.getBytes(1, stripOffset + byteOffset);
+							const currentByte = this.getBytes(1, stripOffset + byteOffset);
 
 							// Duplicate bytes, if necessary.
 							for (var m = 0; m < iterations; m++) {
@@ -677,7 +665,7 @@ class TIFFParser {
 		//		console.log( strips );
 
 		if (canvas.getContext) {
-			var ctx = this.canvas.getContext("2d");
+			const ctx = this.canvas.getContext("2d");
 
 			// Set a default fill style.
 			ctx.fillStyle = this.makeRGBAFillValue(255, 255, 255, 0);
@@ -689,18 +677,18 @@ class TIFFParser {
 				var rowsPerStrip = imageLength;
 			}
 
-			var numStrips = strips.length;
+			const numStrips = strips.length;
 
-			var imageLengthModRowsPerStrip = imageLength % rowsPerStrip;
-			var rowsInLastStrip = (imageLengthModRowsPerStrip === 0) ? rowsPerStrip : imageLengthModRowsPerStrip;
+			const imageLengthModRowsPerStrip = imageLength % rowsPerStrip;
+			const rowsInLastStrip = (imageLengthModRowsPerStrip === 0) ? rowsPerStrip : imageLengthModRowsPerStrip;
 
-			var numRowsInStrip = rowsPerStrip;
-			var numRowsInPreviousStrip = 0;
+			let numRowsInStrip = rowsPerStrip;
+			let numRowsInPreviousStrip = 0;
 
-			var photometricInterpretation = fileDirectory.PhotometricInterpretation.values[0];
+			const photometricInterpretation = fileDirectory.PhotometricInterpretation.values[0];
 
-			var extraSamplesValues: number[] = [];
-			var numExtraSamples = 0;
+			let extraSamplesValues: number[] = [];
+			let numExtraSamples = 0;
 
 			if (fileDirectory.ExtraSamples) {
 				extraSamplesValues = fileDirectory.ExtraSamples.values as number[];
@@ -713,28 +701,28 @@ class TIFFParser {
 			}
 
 			// Loop through the strips in the image.
-			for (var i = 0; i < numStrips; i++) {
+			for (let i = 0; i < numStrips; i++) {
 				// The last strip may be short.
 				if ((i + 1) === numStrips) {
 					numRowsInStrip = rowsInLastStrip;
 				}
 
-				var numPixels = strips[i].length;
-				var yPadding = numRowsInPreviousStrip * i;
+				const numPixels = strips[i].length;
+				const yPadding = numRowsInPreviousStrip * i;
 
 				// Loop through the rows in the strip.
-				for (var y = 0, j = 0; y < numRowsInStrip && j < numPixels; y++) {
+				for (let y = 0, j = 0; y < numRowsInStrip && j < numPixels; y++) {
 					// Loop through the pixels in the row.
-					for (var x = 0; x < imageWidth; x++ , j++) {
-						var pixelSamples = strips[i][j];
+					for (let x = 0; x < imageWidth; x++ , j++) {
+						const pixelSamples = strips[i][j];
 
-						var red = 0;
-						var green = 0;
-						var blue = 0;
-						var opacity = 1.0;
+						let red = 0;
+						let green = 0;
+						let blue = 0;
+						let opacity = 1.0;
 
 						if (numExtraSamples > 0) {
-							for (var k = 0; k < numExtraSamples; k++) {
+							for (let k = 0; k < numExtraSamples; k++) {
 								if (extraSamplesValues[k] === 1 || extraSamplesValues[k] === 2) {
 									// Clamp opacity to the range [0,1].
 									opacity = pixelSamples[3 + k] / 256;
