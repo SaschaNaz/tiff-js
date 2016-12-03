@@ -117,7 +117,6 @@ class TIFFParser {
 	tiffDataView: DataView;
 	littleEndian: boolean;
 	fileDirectories: TIFFFieldDictionary[];
-	canvas: HTMLCanvasElement;
 
 	constructor() {
 		this.tiffDataView = undefined;
@@ -399,17 +398,10 @@ class TIFFParser {
 		return fieldValues;
 	}
 
-	clampColorSample(colorSample: number, bitsPerSample: number) {
+	clampColorSampleTo8Bit(colorSample: number, bitsPerSample: number) {
 		const multiplier = Math.pow(2, 8 - bitsPerSample);
 
 		return Math.floor((colorSample * multiplier) + (multiplier - 1));
-	}
-
-	makeRGBAFillValue(r: number, g: number, b: number, a?: number) {
-		if (typeof a === 'undefined') {
-			a = 1.0;
-		}
-		return `rgba(${r}, ${g}, ${b}, ${a})`;
 	}
 
 	parseFileDirectory(byteOffset: number): TIFFFieldDictionary[] {
@@ -446,7 +438,6 @@ class TIFFParser {
 		canvas = canvas || document.createElement('canvas');
 
 		this.tiffDataView = new DataView(tiffArrayBuffer);
-		this.canvas = canvas;
 
 		this.littleEndian = this.isLittleEndian();
 
@@ -464,9 +455,6 @@ class TIFFParser {
 
 		const imageWidth = fileDirectory.ImageWidth.values[0] as number;
 		const imageLength = fileDirectory.ImageLength.values[0] as number;
-
-		this.canvas.width = imageWidth;
-		this.canvas.height = imageLength;
 
 		const strips: number[][][] = [];
 
@@ -664,146 +652,152 @@ class TIFFParser {
 
 		//		console.log( strips );
 
-		if (canvas.getContext) {
-			const ctx = this.canvas.getContext("2d");
+		const imageDataArray = new (
+			sampleProperties[0].bitsPerSample > 16 ? Float32Array :
+				sampleProperties[0].bitsPerSample > 8 ? Uint16Array :
+					Uint8Array
+		)(imageWidth * imageLength * 4);
 
-			// Set a default fill style.
-			ctx.fillStyle = this.makeRGBAFillValue(255, 255, 255, 0);
 
-			// If RowsPerStrip is missing, the whole image is in one strip.
-			if (fileDirectory.RowsPerStrip) {
-				var rowsPerStrip = fileDirectory.RowsPerStrip.values[0] as number;
-			} else {
-				var rowsPerStrip = imageLength;
+		// If RowsPerStrip is missing, the whole image is in one strip.
+		if (fileDirectory.RowsPerStrip) {
+			var rowsPerStrip = fileDirectory.RowsPerStrip.values[0] as number;
+		} else {
+			var rowsPerStrip = imageLength;
+		}
+
+		const numStrips = strips.length;
+
+		const imageLengthModRowsPerStrip = imageLength % rowsPerStrip;
+		const rowsInLastStrip = (imageLengthModRowsPerStrip === 0) ? rowsPerStrip : imageLengthModRowsPerStrip;
+
+		let numRowsInStrip = rowsPerStrip;
+		let numRowsInPreviousStrip = 0;
+
+		const photometricInterpretation = fileDirectory.PhotometricInterpretation.values[0];
+
+		let extraSamplesValues: number[] = [];
+		let numExtraSamples = 0;
+
+		if (fileDirectory.ExtraSamples) {
+			extraSamplesValues = fileDirectory.ExtraSamples.values as number[];
+			numExtraSamples = extraSamplesValues.length;
+		}
+
+		if (fileDirectory.ColorMap) {
+			var colorMapValues = fileDirectory.ColorMap.values as number[];
+			var colorMapSampleSize = Math.pow(2, sampleProperties[0].bitsPerSample);
+		}
+
+		// Loop through the strips in the image.
+		for (let i = 0; i < numStrips; i++) {
+			// The last strip may be short.
+			if ((i + 1) === numStrips) {
+				numRowsInStrip = rowsInLastStrip;
 			}
 
-			const numStrips = strips.length;
+			const numPixels = strips[i].length;
+			const yPadding = numRowsInPreviousStrip * i;
 
-			const imageLengthModRowsPerStrip = imageLength % rowsPerStrip;
-			const rowsInLastStrip = (imageLengthModRowsPerStrip === 0) ? rowsPerStrip : imageLengthModRowsPerStrip;
+			// Loop through the rows in the strip.
+			for (let y = 0, j = 0; y < numRowsInStrip && j < numPixels; y++) {
+				// Loop through the pixels in the row.
+				for (let x = 0; x < imageWidth; x++ , j++) {
+					const pixelSamples = strips[i][j];
 
-			let numRowsInStrip = rowsPerStrip;
-			let numRowsInPreviousStrip = 0;
+					let red = 0;
+					let green = 0;
+					let blue = 0;
+					let opacity = (1 << sampleProperties[0].bitsPerSample) - 1;
 
-			const photometricInterpretation = fileDirectory.PhotometricInterpretation.values[0];
+					if (numExtraSamples > 0) {
+						for (let k = 0; k < numExtraSamples; k++) {
+							if (extraSamplesValues[k] === 1 || extraSamplesValues[k] === 2) {
+								opacity = pixelSamples[3 + k];
 
-			let extraSamplesValues: number[] = [];
-			let numExtraSamples = 0;
-
-			if (fileDirectory.ExtraSamples) {
-				extraSamplesValues = fileDirectory.ExtraSamples.values as number[];
-				numExtraSamples = extraSamplesValues.length;
-			}
-
-			if (fileDirectory.ColorMap) {
-				var colorMapValues = fileDirectory.ColorMap.values as number[];
-				var colorMapSampleSize = Math.pow(2, sampleProperties[0].bitsPerSample);
-			}
-
-			// Loop through the strips in the image.
-			for (let i = 0; i < numStrips; i++) {
-				// The last strip may be short.
-				if ((i + 1) === numStrips) {
-					numRowsInStrip = rowsInLastStrip;
-				}
-
-				const numPixels = strips[i].length;
-				const yPadding = numRowsInPreviousStrip * i;
-
-				// Loop through the rows in the strip.
-				for (let y = 0, j = 0; y < numRowsInStrip && j < numPixels; y++) {
-					// Loop through the pixels in the row.
-					for (let x = 0; x < imageWidth; x++ , j++) {
-						const pixelSamples = strips[i][j];
-
-						let red = 0;
-						let green = 0;
-						let blue = 0;
-						let opacity = 1.0;
-
-						if (numExtraSamples > 0) {
-							for (let k = 0; k < numExtraSamples; k++) {
-								if (extraSamplesValues[k] === 1 || extraSamplesValues[k] === 2) {
-									// Clamp opacity to the range [0,1].
-									opacity = pixelSamples[3 + k] / 256;
-
-									break;
-								}
+								break;
 							}
 						}
-
-						switch (photometricInterpretation) {
-							// Bilevel or Grayscale
-							// WhiteIsZero
-							case 0:
-								if (sampleProperties[0].hasBytesPerSample) {
-									var invertValue = Math.pow(0x10, sampleProperties[0].bytesPerSample * 2);
-								}
-
-								// Invert samples.
-								pixelSamples.forEach(function (sample, index, samples) { samples[index] = invertValue - sample; });
-
-							// Bilevel or Grayscale
-							// BlackIsZero
-							case 1:
-								red = green = blue = this.clampColorSample(pixelSamples[0], sampleProperties[0].bitsPerSample);
-								break;
-
-							// RGB Full Color
-							case 2:
-								red = this.clampColorSample(pixelSamples[0], sampleProperties[0].bitsPerSample);
-								green = this.clampColorSample(pixelSamples[1], sampleProperties[1].bitsPerSample);
-								blue = this.clampColorSample(pixelSamples[2], sampleProperties[2].bitsPerSample);
-								break;
-
-							// RGB Color Palette
-							case 3:
-								if (colorMapValues === undefined) {
-									throw Error("Palette image missing color map");
-								}
-
-								var colorMapIndex = pixelSamples[0];
-
-								red = this.clampColorSample(colorMapValues[colorMapIndex], 16);
-								green = this.clampColorSample(colorMapValues[colorMapSampleSize + colorMapIndex], 16);
-								blue = this.clampColorSample(colorMapValues[(2 * colorMapSampleSize) + colorMapIndex], 16);
-								break;
-
-							// Transparency mask
-							case 4:
-								throw RangeError('Not Yet Implemented: Transparency mask');
-
-							// CMYK
-							case 5:
-								throw RangeError('Not Yet Implemented: CMYK');
-
-							// YCbCr
-							case 6:
-								throw RangeError('Not Yet Implemented: YCbCr');
-
-							// CIELab
-							case 8:
-								throw RangeError('Not Yet Implemented: CIELab');
-
-							// Unknown Photometric Interpretation
-							default:
-								throw RangeError('Unknown Photometric Interpretation: ' + photometricInterpretation);
-						}
-
-						ctx.fillStyle = this.makeRGBAFillValue(red, green, blue, opacity);
-						ctx.fillRect(x, yPadding + y, 1, 1);
 					}
-				}
 
-				numRowsInPreviousStrip = numRowsInStrip;
+					switch (photometricInterpretation) {
+						// Bilevel or Grayscale
+						// WhiteIsZero
+						case 0:
+							if (sampleProperties[0].hasBytesPerSample) {
+								var invertValue = Math.pow(0x10, sampleProperties[0].bytesPerSample * 2);
+							}
+
+							// Invert samples.
+							pixelSamples.forEach(function (sample, index, samples) { samples[index] = invertValue - sample; });
+
+						// Bilevel or Grayscale
+						// BlackIsZero
+						case 1:
+							red = green = blue = this.clampColorSampleTo8Bit(pixelSamples[0], sampleProperties[0].bitsPerSample);
+							break;
+
+						// RGB Full Color
+						case 2:
+							red = pixelSamples[0];
+							green = pixelSamples[1];
+							blue = pixelSamples[2];
+							break;
+
+						// RGB Color Palette
+						case 3:
+							if (colorMapValues === undefined) {
+								throw Error("Palette image missing color map");
+							}
+
+							var colorMapIndex = pixelSamples[0];
+
+							red = this.clampColorSampleTo8Bit(colorMapValues[colorMapIndex], 16);
+							green = this.clampColorSampleTo8Bit(colorMapValues[colorMapSampleSize + colorMapIndex], 16);
+							blue = this.clampColorSampleTo8Bit(colorMapValues[(2 * colorMapSampleSize) + colorMapIndex], 16);
+							break;
+
+						// Transparency mask
+						case 4:
+							throw RangeError('Not Yet Implemented: Transparency mask');
+
+						// CMYK
+						case 5:
+							throw RangeError('Not Yet Implemented: CMYK');
+
+						// YCbCr
+						case 6:
+							throw RangeError('Not Yet Implemented: YCbCr');
+
+						// CIELab
+						case 8:
+							throw RangeError('Not Yet Implemented: CIELab');
+
+						// Unknown Photometric Interpretation
+						default:
+							throw RangeError('Unknown Photometric Interpretation: ' + photometricInterpretation);
+					}
+
+					const pixelOffset = (x + (yPadding + y) * imageWidth) * 4;
+					imageDataArray[pixelOffset] = red;
+					imageDataArray[pixelOffset + 1] = green;
+					imageDataArray[pixelOffset + 2] = blue;
+					imageDataArray[pixelOffset + 3] = opacity;
+				}
 			}
+
+			numRowsInPreviousStrip = numRowsInStrip;
 		}
 
 		/*		for (var i = 0, numFileDirectories = this.fileDirectories.length; i < numFileDirectories; i++) {
 					// Stuff
 				}*/
 
-		return this.canvas;
+		return {
+			data: imageDataArray,
+			width: imageWidth,
+			height: imageLength
+		};
 	}
 
 

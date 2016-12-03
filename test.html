@@ -29,18 +29,32 @@
 				console.log( tiffParser );
 
 				// Parse the TIFF image.
-				var tiffCanvas = tiffParser.parseTIFF(e.target.result, canvas);
-
-				// Make it clear that we've loaded the image.
-				tiffCanvas.style.borderStyle = "solid";
-
-				console.log( tiffCanvas );
-
-				// Put the parsed image in the page.
-				canvasParent.replaceChild(tiffCanvas, canvas);
+				const result = tiffParser.parseTIFF(e.target.result);
+				const imageData = createImageData(result.data, result.width, result.height);
+				canvas.width = result.width;
+				canvas.height = result.height;
+				canvas.getContext("2d").putImageData(imageData, 0, 0);
 			};
 
 			reader.readAsArrayBuffer( file );
+		}
+
+		function createImageData(imageDataArray, width, height) {
+			if (imageDataArray instanceof Uint8Array) {
+				return imageDataArray;
+			}
+			const imageData = new ImageData(width, height);
+
+			const bitsPerSample = imageDataArray.BYTES_PER_ELEMENT * 8;
+			for (let i = 0; i < imageDataArray.length; i++) {
+				imageData.data[i] = clampColorSampleTo8Bit(imageDataArray[i], bitsPerSample);
+			}
+			return imageData;
+		}
+		function clampColorSampleTo8Bit(colorSample, bitsPerSample) {
+			const multiplier = Math.pow(2, 8 - bitsPerSample);
+
+			return Math.floor((colorSample * multiplier) + (multiplier - 1));
 		}
 	</script>
 </head>
