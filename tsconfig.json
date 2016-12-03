@@ -1,0 +1,9 @@
+{
+    "compilerOptions": {
+        "target": "es2015",
+        "noImplicitAny": true,
+        "declaration": true,
+        "sourceMap": true,
+        "outDir": "built/"
+    }
+}
