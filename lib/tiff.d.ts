@@ -10,21 +10,17 @@ declare class TIFFParser {
     littleEndian: boolean;
     fileDirectories: TIFFFieldDictionary[];
     constructor();
-    isLittleEndian(): boolean;
-    hasTowel(): boolean;
-    getFieldTagName(fieldTag: number): string;
-    getFieldTypeName(fieldType: number): string;
-    getFieldTypeLength(fieldTypeName: string): 2 | 8 | 1 | 4;
-    getBits(numBits: number, byteOffset: number, bitOffset: number): {
-        'bits': number;
-        'byteOffset': number;
-        'bitOffset': number;
-    };
-    getBytes(numBytes: number, offset: number): number;
-    getFieldValues(fieldTagName: string, fieldTypeName: string, typeCount: number, valueOffset: number): (string | number)[];
-    clampColorSampleTo8Bit(colorSample: number, bitsPerSample: number): number;
-    parseFileDirectory(byteOffset: number): TIFFFieldDictionary[];
-    parseTIFF(tiffArrayBuffer: ArrayBuffer, canvas: HTMLCanvasElement): {
+    private isLittleEndian();
+    private hasTowel();
+    private getFieldTagName(fieldTag);
+    private getFieldTypeName(fieldType);
+    private getFieldTypeLength(fieldTypeName);
+    private getBits(numBits, byteOffset, bitOffset);
+    private getBytes(numBytes, offset);
+    private getFieldValues(fieldTagName, fieldTypeName, typeCount, valueOffset);
+    private clampColorSampleTo8Bit(colorSample, bitsPerSample);
+    private parseFileDirectory(byteOffset);
+    parseTIFF(tiffArrayBuffer: ArrayBuffer): {
         data: Uint8Array | Uint16Array | Float32Array;
         width: number;
         height: number;

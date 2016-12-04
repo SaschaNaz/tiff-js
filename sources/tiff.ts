@@ -125,7 +125,7 @@ class TIFFParser {
 	};
 
 
-	isLittleEndian() {
+	private isLittleEndian() {
 		// Get byte order mark.
 		var BOM = this.getBytes(2, 0);
 
@@ -142,7 +142,7 @@ class TIFFParser {
 		return this.littleEndian;
 	}
 
-	hasTowel() {
+	private hasTowel() {
 		// Check for towel.
 		if (this.getBytes(2, 2) !== 42) {
 			throw RangeError("You forgot your towel!");
@@ -151,7 +151,7 @@ class TIFFParser {
 		return true;
 	}
 
-	getFieldTagName(fieldTag: number) {
+	private getFieldTagName(fieldTag: number) {
 		// See: http://www.digitizationguidelines.gov/guidelines/TIFF_Metadata_Final.pdf
 		// See: http://www.digitalpreservation.gov/formats/content/tiff_tags.shtml
 		const fieldTagNames = {
@@ -272,7 +272,7 @@ class TIFFParser {
 		}
 	}
 
-	getFieldTypeName(fieldType: number) {
+	private getFieldTypeName(fieldType: number) {
 		const fieldTypeNames = {
 			0x0001: 'BYTE',
 			0x0002: 'ASCII',
@@ -293,7 +293,7 @@ class TIFFParser {
 		}
 	}
 
-	getFieldTypeLength(fieldTypeName: string) {
+	private getFieldTypeLength(fieldTypeName: string) {
 		if (['BYTE', 'ASCII', 'SBYTE', 'UNDEFINED'].indexOf(fieldTypeName) !== -1) {
 			return 1;
 		} else if (['SHORT', 'SSHORT'].indexOf(fieldTypeName) !== -1) {
@@ -305,7 +305,7 @@ class TIFFParser {
 		}
 	}
 
-	getBits(numBits: number, byteOffset: number, bitOffset: number) {
+	private getBits(numBits: number, byteOffset: number, bitOffset: number) {
 		bitOffset = bitOffset || 0;
 		const extraBytes = Math.floor(bitOffset / 8);
 		const newByteOffset = byteOffset + extraBytes;
@@ -338,7 +338,7 @@ class TIFFParser {
 		return chunkInfo;
 	}
 
-	getBytes(numBytes: number, offset: number) {
+	private getBytes(numBytes: number, offset: number) {
 		if (numBytes <= 0) {
 			console.log(numBytes, offset);
 			throw RangeError("No bytes requested");
@@ -356,7 +356,7 @@ class TIFFParser {
 		}
 	}
 
-	getFieldValues(fieldTagName: string, fieldTypeName: string, typeCount: number, valueOffset: number) {
+	private getFieldValues(fieldTagName: string, fieldTypeName: string, typeCount: number, valueOffset: number) {
 		const fieldValues: (string | number)[] = [];
 
 		const fieldTypeLength = this.getFieldTypeLength(fieldTypeName);
@@ -398,13 +398,13 @@ class TIFFParser {
 		return fieldValues;
 	}
 
-	clampColorSampleTo8Bit(colorSample: number, bitsPerSample: number) {
+	private clampColorSampleTo8Bit(colorSample: number, bitsPerSample: number) {
 		const multiplier = Math.pow(2, 8 - bitsPerSample);
 
 		return Math.floor((colorSample * multiplier) + (multiplier - 1));
 	}
 
-	parseFileDirectory(byteOffset: number): TIFFFieldDictionary[] {
+	private parseFileDirectory(byteOffset: number): TIFFFieldDictionary[] {
 		const numDirEntries = this.getBytes(2, byteOffset);
 
 		const tiffFields = {} as TIFFFieldDictionary;
@@ -434,9 +434,7 @@ class TIFFParser {
 		}
 	}
 
-	parseTIFF(tiffArrayBuffer: ArrayBuffer, canvas: HTMLCanvasElement) {
-		canvas = canvas || document.createElement('canvas');
-
+	parseTIFF(tiffArrayBuffer: ArrayBuffer) {
 		this.tiffDataView = new DataView(tiffArrayBuffer);
 
 		this.littleEndian = this.isLittleEndian();
